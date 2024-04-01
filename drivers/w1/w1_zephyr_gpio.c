@@ -48,11 +48,11 @@ LOG_MODULE_REGISTER(w1_gpio, CONFIG_W1_LOG_LEVEL);
 /*
  * Standard timing between communication operations:
  */
-#define W1_GPIO_TIMING_STD_A 6u
+#define W1_GPIO_TIMING_STD_A 1u
 #define W1_GPIO_TIMING_STD_B 64u
 #define W1_GPIO_TIMING_STD_C 60u
 #define W1_GPIO_TIMING_STD_D 10u
-#define W1_GPIO_TIMING_STD_E 9u
+#define W1_GPIO_TIMING_STD_E 5u
 #define W1_GPIO_TIMING_STD_F 55u
 #define W1_GPIO_TIMING_STD_G 0u
 #define W1_GPIO_TIMING_STD_H 480u
@@ -155,6 +155,10 @@ static int w1_gpio_reset_bus(const struct device *dev)
 		goto out;
 	}
 
+	ret = gpio_pin_configure_dt(spec, GPIO_INPUT);
+	if (ret < 0) {
+		goto out;
+	}
 	W1_GPIO_WAIT_US(timing->i);
 	ret = gpio_pin_get_dt(spec);
 	if (ret < 0) {
@@ -165,6 +169,7 @@ static int w1_gpio_reset_bus(const struct device *dev)
 	W1_GPIO_WAIT_US(timing->j);
 out:
 	W1_GPIO_EXIT_CRITICAL(key);
+	gpio_pin_configure_dt(spec, GPIO_OUTPUT_ACTIVE);
 	return ret;
 }
 
@@ -185,7 +190,7 @@ static int w1_gpio_read_bit(const struct device *dev)
 	}
 
 	W1_GPIO_WAIT_US(timing->a);
-	ret = gpio_pin_set_dt(spec, 1);
+	ret = gpio_pin_configure_dt(spec, GPIO_INPUT);
 	if (ret < 0) {
 		goto out;
 	}
@@ -200,6 +205,7 @@ static int w1_gpio_read_bit(const struct device *dev)
 	W1_GPIO_WAIT_US(timing->f);
 out:
 	W1_GPIO_EXIT_CRITICAL(key);
+	gpio_pin_configure_dt(spec, GPIO_OUTPUT_ACTIVE);
 	return ret;
 }
 
@@ -248,6 +254,7 @@ static int w1_gpio_read_byte(const struct device *dev)
 		}
 	}
 
+	LOG_DBG("w1-gpio readbyte: 0x%02x", byte);
 	return byte;
 }
 
@@ -264,6 +271,7 @@ static int w1_gpio_write_byte(const struct device *dev, const uint8_t byte)
 		write >>= 1;
 	}
 
+	LOG_DBG("w1-gpio writebyte: 0x%02x", byte);
 	return ret;
 }
 
