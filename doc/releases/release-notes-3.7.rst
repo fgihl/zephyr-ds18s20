@@ -210,6 +210,8 @@ Drivers and Sensors
 
 * Sensor
 
+  * Added DS18S20 1-wire temperature sensor driver.
+
 * Serial
 
   * Added driver to support UART over Bluetooth LE using NUS (Nordic UART Service). This driver
