@@ -28,6 +28,7 @@ LOG_MODULE_REGISTER(TMP114, CONFIG_SENSOR_LOG_LEVEL);
 
 #define TMP114_ALERT_DATA_READY  BIT(0)
 #define TMP114_AVG_MASK          BIT(7)
+#define TMP114_CONV_PERIOD_MASK  (BIT(0) | BIT(1) | BIT(2))
 
 struct tmp114_data {
 	uint16_t sample;
@@ -60,6 +61,30 @@ static int tmp114_reg_write(const struct device *dev, uint8_t reg,
 	uint8_t tx_buf[3] = {reg, val >> 8, val & 0xFF};
 
 	return i2c_write_dt(&cfg->bus, tx_buf, sizeof(tx_buf));
+}
+
+
+static int tmp114_write_config(const struct device *dev, uint16_t mask, uint16_t conf)
+{
+	uint16_t config = 0;
+	int result;
+
+	result = tmp114_reg_read(dev, TMP114_REG_CFGR, &config);
+
+	if (result < 0) {
+		return result;
+	}
+
+	config &= mask;
+	config |= conf;
+
+	result = tmp114_reg_write(dev, TMP114_REG_CFGR, config);
+
+	if (result < 0) {
+		return result;
+	}
+
+	return 0;
 }
 
 static inline int tmp114_device_id_check(const struct device *dev, uint16_t *id)
@@ -182,16 +207,35 @@ static int tmp114_attr_set(const struct device *dev,
 		/* Enable the AVG in tmp114. The chip will do 8 avg of 8 samples
 		 * to get a more accurate value.
 		 */
-		rc = tmp114_reg_read(dev, TMP114_REG_CFGR, &value);
-		if (rc < 0) {
-			return rc;
-		}
-		value = value & ~TMP114_AVG_MASK;
+		value = 0;
 		if (val->val1) {
-			value |= TMP114_AVG_MASK;
+			value = TMP114_AVG_MASK;
 		}
 
-		return tmp114_reg_write(dev, TMP114_REG_CFGR, value);
+		return tmp114_write_config(dev, ~TMP114_AVG_MASK, value);
+	case SENSOR_ATTR_SAMPLING_FREQUENCY:
+		/* Set the sampling frequency in tmp114 */
+		value = 0;
+		if (val->val1 == 156) {
+			value |= 0;
+		} else if (val->val1 == 32) {
+			value |= 1;
+		} else if (val->val1 == 16) {
+			value |= 2;
+		} else if (val->val1 == 8) {
+			value |= 3;
+		} else if (val->val1 == 4) {
+			value |= 4;
+		} else if (val->val1 == 2) {
+			value |= 5;
+		} else if (val->val1 == 1) {
+			value |= 6;
+		} else if (val->val1 == 0 && val->val2 == 5) {
+			value |= 7;
+		} else {
+			return -EINVAL;
+		}
+		return tmp114_write_config(dev, ~TMP114_CONV_PERIOD_MASK, value);
 	default:
 		return -ENOTSUP;
 	}
